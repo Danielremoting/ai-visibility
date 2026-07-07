@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>remoting.work — AI Visibility Checker</title>
+<style>
+  :root {
+    --green-700: #15803d;
+    --green-600: #16a34a;
+    --green-500: #22c55e;
+    --green-100: #dcfce7;
+    --green-50:  #f0fdf4;
+    --ink-900: #111827;
+    --ink-600: #4b5563;
+    --ink-400: #9ca3af;
+    --line: #e5e7eb;
+    --red-600: #dc2626;
+    --red-50: #fef2f2;
+    --amber-600: #d97706;
+    --amber-50: #fffbeb;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 8px 24px -12px rgba(16, 24, 40, .12);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #ffffff;
+    color: var(--ink-900);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 80px; }
+
+  /* ---------- header ---------- */
+  header {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--line);
+    background: #fff;
+  }
+  .header-inner { max-width: 880px; margin: 0 auto; padding: 0 20px; display: flex; align-items: center; gap: 10px; }
+  .logo-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--green-600);
+    box-shadow: 0 0 0 4px var(--green-100);
+  }
+  .brand { font-weight: 700; font-size: 16px; }
+  .brand .tld { color: var(--green-600); }
+  .brand-sub { font-size: 13px; color: var(--ink-400); margin-left: 4px; }
+
+  /* ---------- hero ---------- */
+  .hero { text-align: center; padding: 56px 0 8px; }
+  .hero h1 { font-size: 34px; font-weight: 800; letter-spacing: -0.5px; }
+  .hero h1 em { color: var(--green-600); font-style: normal; }
+  .hero p { color: var(--ink-600); margin-top: 10px; font-size: 16px; }
+
+  /* ---------- search ---------- */
+  .search-card {
+    margin: 28px auto 0;
+    display: flex; gap: 10px;
+    max-width: 620px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 10px;
+    box-shadow: var(--shadow);
+  }
+  .search-card input {
+    flex: 1; border: none; outline: none;
+    font-size: 16px; padding: 10px 12px;
+    color: var(--ink-900);
+  }
+  .search-card input::placeholder { color: var(--ink-400); }
+  .btn {
+    background: var(--green-600); color: #fff;
+    border: none; border-radius: 10px;
+    font-size: 15px; font-weight: 600;
+    padding: 12px 26px; cursor: pointer;
+    transition: background .15s ease, transform .05s ease;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--green-700); }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { background: var(--ink-400); cursor: not-allowed; }
+  .hint { text-align: center; color: var(--ink-400); font-size: 13px; margin-top: 12px; }
+
+  /* ---------- loading ---------- */
+  #loading { display: none; text-align: center; padding: 70px 0 40px; }
+  .spinner {
+    width: 52px; height: 52px; margin: 0 auto 22px;
+    border-radius: 50%;
+    border: 4px solid var(--green-100);
+    border-top-color: var(--green-600);
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-status { font-size: 17px; font-weight: 600; color: var(--ink-900); min-height: 26px; }
+  #loading small { display: block; margin-top: 8px; color: var(--ink-400); font-size: 13px; }
+  .progress-track {
+    max-width: 340px; height: 6px; margin: 18px auto 0;
+    background: var(--green-100); border-radius: 99px; overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%; width: 0%;
+    background: var(--green-500); border-radius: 99px;
+    transition: width 1s linear;
+  }
+
+  /* ---------- error ---------- */
+  #error {
+    display: none;
+    max-width: 620px; margin: 30px auto 0;
+    background: var(--red-50); border: 1px solid #fecaca;
+    color: var(--red-600);
+    border-radius: var(--radius); padding: 16px 20px; font-size: 14.5px;
+  }
+
+  /* ---------- results ---------- */
+  #results { display: none; margin-top: 48px; }
+  .section-label {
+    font-size: 12px; font-weight: 700; letter-spacing: 1.4px;
+    text-transform: uppercase; color: var(--green-700);
+    margin: 38px 0 14px;
+  }
+  .card {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 22px;
+    box-shadow: var(--shadow);
+  }
+
+  /* summary row */
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 680px) { .summary-grid { grid-template-columns: 1fr; } }
+  .metric { text-align: center; padding: 26px 16px; }
+  .metric .num { font-size: 34px; font-weight: 800; color: var(--green-600); }
+  .metric .num.bad { color: var(--red-600); }
+  .metric .num.mid { color: var(--amber-600); }
+  .metric .label { color: var(--ink-600); font-size: 13.5px; margin-top: 4px; }
+  .metric .sub { color: var(--ink-400); font-size: 12.5px; margin-top: 6px; }
+
+  /* gauge */
+  .gauge { position: relative; width: 108px; height: 108px; margin: 0 auto 10px; }
+  .gauge svg { transform: rotate(-90deg); }
+  .gauge .val {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 800;
+  }
+
+  .verdict-pill {
+    display: inline-block; margin-top: 10px;
+    padding: 5px 14px; border-radius: 99px;
+    font-size: 13px; font-weight: 600;
+  }
+  .pill-good { background: var(--green-100); color: var(--green-700); }
+  .pill-bad  { background: var(--red-50);  color: var(--red-600); border: 1px solid #fecaca; }
+
+  /* bots table */
+  .bot-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 4px; border-bottom: 1px solid var(--line);
+    font-size: 14.5px;
+  }
+  .bot-row:last-child { border-bottom: none; }
+  .badge {
+    font-size: 12.5px; font-weight: 600; padding: 3px 12px; border-radius: 99px;
+  }
+  .badge-allowed { background: var(--green-100); color: var(--green-700); }
+  .badge-blocked { background: var(--red-50); color: var(--red-600); border: 1px solid #fecaca; }
+  .badge-unknown { background: #f3f4f6; color: var(--ink-600); }
+
+  /* profile chips */
+  .profile-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip {
+    background: var(--green-50); border: 1px solid var(--green-100);
+    color: var(--green-700); border-radius: 99px;
+    font-size: 13px; padding: 5px 13px;
+  }
+  .kv { font-size: 14.5px; margin-bottom: 6px; color: var(--ink-600); }
+  .kv b { color: var(--ink-900); }
+
+  /* topic bars */
+  .topic { margin-bottom: 14px; }
+  .topic .t-head { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 5px; color: var(--ink-600); }
+  .topic .t-head b { color: var(--ink-900); font-weight: 600; }
+  .bar-track { height: 8px; background: #f3f4f6; border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--green-500); border-radius: 99px; }
+
+  /* issues */
+  ul.issues { list-style: none; }
+  ul.issues li {
+    padding: 9px 0 9px 26px; position: relative;
+    font-size: 14.5px; color: var(--ink-600);
+    border-bottom: 1px solid var(--line);
+  }
+  ul.issues li:last-child { border-bottom: none; }
+  ul.issues li::before {
+    content: "!"; position: absolute; left: 0; top: 10px;
+    width: 17px; height: 17px; border-radius: 50%;
+    background: var(--amber-50); color: var(--amber-600);
+    border: 1px solid #fde68a;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* recommendations */
+  .rec { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 14px; background: #fff; box-shadow: var(--shadow); }
+  .rec-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .rec-cat { font-weight: 700; font-size: 14.5px; }
+  .prio { font-size: 11.5px; font-weight: 700; letter-spacing: .4px; padding: 3px 10px; border-radius: 99px; text-transform: uppercase; }
+  .prio-critical { background: var(--red-50); color: var(--red-600); border: 1px solid #fecaca; }
+  .prio-high { background: var(--amber-50); color: var(--amber-600); border: 1px solid #fde68a; }
+  .prio-medium { background: var(--green-50); color: var(--green-700); border: 1px solid var(--green-100); }
+  .rec .issue { font-size: 14.5px; color: var(--ink-900); margin-bottom: 8px; }
+  .rec ul { margin: 8px 0 0 18px; }
+  .rec ul li { font-size: 14px; color: var(--ink-600); margin-bottom: 6px; }
+  .rec .impact { margin-top: 10px; font-size: 13px; color: var(--green-700); background: var(--green-50); border-radius: 8px; padding: 8px 12px; }
+
+  .note { font-size: 13px; color: var(--ink-400); margin-top: 8px; }
+  .warn-box {
+    background: var(--amber-50); border: 1px solid #fde68a; color: var(--amber-600);
+    font-size: 13.5px; border-radius: 10px; padding: 10px 14px; margin-top: 12px;
+  }
+  footer { text-align: center; color: var(--ink-400); font-size: 13px; padding: 40px 0 30px; border-top: 1px solid var(--line); margin-top: 60px; }
+  footer b { color: var(--green-600); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-dot"></div>
+    <div class="brand">remoting<span class="tld">.work</span><span class="brand-sub">AI Visibility Checker</span></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="hero">
+    <h1>Is your website <em>visible to AI</em>?</h1>
+    <p>Check if ChatGPT, Claude, Gemini &amp; Perplexity can read your site and whether they mention or recommend your brand.</p>
+  </section>
+
+  <form class="search-card" id="form">
+    <input id="url" type="text" placeholder="Enter your website, e.g. remoting.work" autocomplete="off" spellcheck="false" required />
+    <button class="btn" id="submit-btn" type="submit">Check visibility</button>
+  </form>
+  <p class="hint">Full analysis takes about a minute, we crawl your site and query live AI models.</p>
+
+  <div id="error"></div>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-status">Crawling your website…</div>
+    <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
+    <small>This usually takes 40–70 seconds. Please keep this tab open.</small>
+  </div>
+
+  <div id="results"></div>
+
+</div>
+
+<footer>Built by <b>remoting.work. </b>  AI Visibility Checker</footer>
+
+<script>
+(function () {
+  const form = document.getElementById("form");
+  const urlInput = document.getElementById("url");
+  const btn = document.getElementById("submit-btn");
+  const loading = document.getElementById("loading");
+  const loadingStatus = document.getElementById("loading-status");
+  const progressBar = document.getElementById("progress-bar");
+  const errorBox = document.getElementById("error");
+  const results = document.getElementById("results");
+
+  const LOADING_STEPS = [
+    "Crawling your website…",
+    "Checking robots.txt & AI bot access…",
+    "Analyzing page structure & content density…",
+    "Detecting your brand profile…",
+    "Querying live AI models about your niche…",
+    "Measuring brand mentions & recommendations…",
+    "Compiling your action plan…",
+  ];
+  let stepTimer = null, progressTimer = null;
+
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  function startLoading() {
+    errorBox.style.display = "none";
+    results.style.display = "none";
+    results.innerHTML = "";
+    loading.style.display = "block";
+    btn.disabled = true;
+    btn.textContent = "Checking…";
+
+    let i = 0;
+    loadingStatus.textContent = LOADING_STEPS[0];
+    stepTimer = setInterval(() => {
+      i = Math.min(i + 1, LOADING_STEPS.length - 1);
+      loadingStatus.textContent = LOADING_STEPS[i];
+    }, 8000);
+
+    // Eases toward 92% over ~70s; jumps to 100% when the response lands.
+    let p = 0;
+    progressBar.style.width = "0%";
+    progressTimer = setInterval(() => {
+      p = Math.min(p + (92 - p) * 0.045, 92);
+      progressBar.style.width = p.toFixed(1) + "%";
+    }, 1000);
+  }
+
+  function stopLoading() {
+    clearInterval(stepTimer);
+    clearInterval(progressTimer);
+    progressBar.style.width = "100%";
+    setTimeout(() => { loading.style.display = "none"; }, 350);
+    btn.disabled = false;
+    btn.textContent = "Check visibility";
+  }
+
+  function showError(message) {
+    errorBox.textContent = message;
+    errorBox.style.display = "block";
+  }
+
+  function scoreClass(v) { return v >= 70 ? "" : v >= 40 ? "mid" : "bad"; }
+
+  function gauge(score) {
+    const r = 46, c = 2 * Math.PI * r;
+    const filled = c * Math.min(Math.max(score, 0), 100) / 100;
+    const color = score >= 70 ? "var(--green-600)" : score >= 40 ? "var(--amber-600)" : "var(--red-600)";
+    return `
+      <div class="gauge">
+        <svg width="108" height="108" viewBox="0 0 108 108">
+          <circle cx="54" cy="54" r="${r}" fill="none" stroke="var(--green-100)" stroke-width="9"/>
+          <circle cx="54" cy="54" r="${r}" fill="none" stroke="${color}" stroke-width="9"
+                  stroke-linecap="round" stroke-dasharray="${filled} ${c - filled}"/>
+        </svg>
+        <div class="val" style="color:${color}">${score}</div>
+      </div>`;
+  }
+
+  function botBadge(status) {
+    if (/Blocked/i.test(status)) return `<span class="badge badge-blocked">${esc(status)}</span>`;
+    if (/Allowed/i.test(status)) return `<span class="badge badge-allowed">${esc(status)}</span>`;
+    return `<span class="badge badge-unknown">${esc(status)}</span>`;
+  }
+
+  function prioClass(p) {
+    p = (p || "").toLowerCase();
+    if (p === "critical") return "prio-critical";
+    if (p === "high") return "prio-high";
+    return "prio-medium";
+  }
+
+  function warnBox(data) {
+    if (!data || !data.failed_runs) return "";
+    return `<div class="warn-box">⚠ ${data.failed_runs} AI queries failed and were excluded from this rate.
+            Last error: ${esc(data.last_error || "unknown")}</div>`;
+  }
+
+  function render(data) {
+    const read = data.readability || {};
+    const vis = data.visibility || {};
+    const mention = vis.mention || {};
+    const reco = vis.recommendation;
+    const profile = vis.detected_profile || {};
+    const tech = data.technical || {};
+    const recs = data.recommendations || [];
+
+    const mentionRate = mention.mention_rate_percent;
+    const recoRate = reco ? reco.recommendation_rate_percent : null;
+
+    let html = "";
+
+    /* ---- summary ---- */
+    html += `<div class="section-label">Summary</div>
+    <div class="summary-grid">
+      <div class="card metric">
+        ${gauge(read.score ?? 0)}
+        <div class="label">AI Readability Score</div>
+        <span class="verdict-pill ${read.can_read ? "pill-good" : "pill-bad"}">${esc(read.verdict || "")}</span>
+      </div>
+      <div class="card metric">
+        <div class="num ${mentionRate == null ? "bad" : scoreClass(mentionRate)}">${mentionRate == null ? "—" : mentionRate + "%"}</div>
+        <div class="label">AI Mention Rate</div>
+        <div class="sub">${esc(mention.mention_occurrences ?? 0)}/${esc(mention.total_runs_completed ?? 0)} AI answers mentioned your brand</div>
+      </div>
+      <div class="card metric">
+        <div class="num ${recoRate == null ? "bad" : scoreClass(recoRate)}">${recoRate == null ? "—" : recoRate + "%"}</div>
+        <div class="label">AI Recommendation Rate</div>
+        <div class="sub">${reco ? esc(reco.recommendation_occurrences) + "/" + esc(reco.runs_completed) + " answers recommended you" : "Category not detected"}</div>
+      </div>
+    </div>`;
+
+    /* ---- bot access ---- */
+    html += `<div class="section-label">AI Bot Access (robots.txt: ${esc(read.robots_txt || "Unknown")})</div>
+    <div class="card">`;
+    for (const [bot, status] of Object.entries(read.bots || {})) {
+      html += `<div class="bot-row"><span>${esc(bot)}</span>${botBadge(status)}</div>`;
+    }
+    html += `</div>`;
+    if ((read.recommendations || []).length) {
+      html += `<div class="card" style="margin-top:14px; background: var(--green-50); border-color: var(--green-100);">
+        <b style="font-size:14.5px;">Fix bot access first:</b>
+        <ul style="margin:8px 0 0 18px;">
+          ${read.recommendations.map(r => `<li style="font-size:14px;color:var(--ink-600);margin-bottom:6px;">${esc(r)}</li>`).join("")}
+        </ul>
+      </div>`;
+    }
+
+    /* ---- detected profile ---- */
+    html += `<div class="section-label">Detected Brand Profile</div>
+    <div class="card">
+      <div class="kv">Brand: <b>${esc(profile.brand_name || "—")}</b></div>
+      <div class="kv">Category: <b>${esc(profile.business_category || "N/A")}</b></div>
+      <div class="kv">Topics we asked AI about:</div>
+      <div class="profile-row">${(profile.topics || []).map(t => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+      ${profile.auto_detection_succeeded === false ? `<p class="note">Note: auto-detection failed (${esc(profile.auto_detection_error || "unknown")}) — fallback values were used.</p>` : ""}
+    </div>`;
+
+    /* ---- mention breakdown ---- */
+    html += `<div class="section-label">Mention Tracking — ${esc(mention.model_used || "AI model")}</div>
+    <div class="card">
+      <div class="kv" style="margin-bottom:14px;">Verdict: <b>${esc(mention.verdict || "")}</b></div>`;
+    for (const [topic, d] of Object.entries(mention.topic_details || {})) {
+      const rate = d.mention_rate_percent ?? 0;
+      html += `<div class="topic">
+        <div class="t-head"><b>${esc(topic)}</b><span>${rate}% (${d.mention_hits}/${d.runs_completed})</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${rate}%"></div></div>
+      </div>`;
+    }
+    html += warnBox(mention) + `</div>`;
+
+    /* ---- recommendation tracking ---- */
+    if (reco) {
+      html += `<div class="section-label">Recommendation Tracking — “${esc(reco.business_category)}”</div>
+      <div class="card">
+        <div class="kv">Verdict: <b>${esc(reco.verdict || "")}</b></div>
+        <div class="kv">Recommended in <b>${esc(reco.recommendation_occurrences)}/${esc(reco.runs_completed)}</b> buying-intent answers</div>
+        ${reco.average_position_when_recommended ? `<div class="kv">Average list position when recommended: <b>#${esc(reco.average_position_when_recommended)}</b></div>` : ""}
+        ${warnBox(reco)}
+      </div>`;
+    }
+
+    /* ---- technical issues ---- */
+    if ((tech.key_issues || []).length) {
+      html += `<div class="section-label">Technical Issues Found</div>
+      <div class="card">
+        <div class="kv" style="margin-bottom:10px;">Crawl verdict: <b>${esc(tech.verdict || "")}</b></div>
+        <ul class="issues">${tech.key_issues.map(i => `<li>${esc(i)}</li>`).join("")}</ul>
+      </div>`;
+    }
+
+    /* ---- action plan ---- */
+    html += `<div class="section-label">Your Action Plan (${recs.length} recommendation${recs.length === 1 ? "" : "s"})</div>`;
+    if (recs.length) {
+      for (const rec of recs) {
+        const items = (rec.action_items && rec.action_items.length ? rec.action_items : [rec.action]);
+        html += `<div class="rec">
+          <div class="rec-top">
+            <span class="rec-cat">${esc(rec.category)}</span>
+            <span class="prio ${prioClass(rec.priority)}">${esc(rec.priority)}</span>
+          </div>
+          <div class="issue">${esc(rec.issue)}</div>
+          <ul>${items.map(a => `<li>${esc(a)}</li>`).join("")}</ul>
+          <div class="impact">Impact: ${esc(rec.impact)}</div>
+        </div>`;
+      }
+    } else {
+      html += `<div class="card" style="text-align:center;color:var(--green-700);font-weight:600;">
+        Nothing to fix — this site has strong technical readability and AI visibility. 
+      </div>`;
+    }
+
+    results.innerHTML = html;
+    results.style.display = "block";
+    results.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const url = urlInput.value.trim();
+    if (!url) return;
+
+    startLoading();
+    try {
+      const resp = await fetch("/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!resp.ok) {
+        let detail = `Request failed (HTTP ${resp.status})`;
+        try { detail = (await resp.json()).detail || detail; } catch (_) {}
+        throw new Error(detail);
+      }
+      const data = await resp.json();
+      stopLoading();
+      render(data);
+    } catch (err) {
+      stopLoading();
+      showError("Could not complete the analysis: " + err.message);
+    }
+  });
+})();
+</script>
+</body>
+</html>
